@@ -26,3 +26,10 @@ module "gold" {
   project  = var.project_id
   location = var.region
 }
+
+module "lake" {
+  source   = "./modules/gcs_bucket"
+  name     = "stmsn-lake"
+  project  = var.project_id
+  location = var.region
+}

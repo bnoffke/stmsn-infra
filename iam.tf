@@ -75,3 +75,10 @@ resource "google_storage_bucket_iam_binding" "gold_object_viewer" {
     local.sa.streamlit_reader,
   ]
 }
+
+# stmsn-lake
+resource "google_storage_bucket_iam_binding" "lake_object_user" {
+  bucket  = module.lake.name
+  role    = "roles/storage.objectUser"
+  members = [local.sa.dbt_sa]
+}
