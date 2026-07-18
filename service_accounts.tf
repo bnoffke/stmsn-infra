@@ -24,6 +24,13 @@ resource "google_service_account" "streamlit_reader" {
   project      = var.project_id
 }
 
+resource "google_service_account" "scheduler_sa" {
+  account_id   = "scheduler-sa"
+  display_name = "Cloud Scheduler Invoker"
+  description  = "Invokes Cloud Run jobs on schedule; run.invoker only."
+  project      = var.project_id
+}
+
 resource "google_service_account" "ci_publisher" {
   account_id   = "ci-publisher-sa"
   display_name = "CI Publisher"

@@ -16,6 +16,7 @@ locals {
     route_traffic_runner = "serviceAccount:route-traffic-runner@madison-municipal-data.iam.gserviceaccount.com"
     ci_publisher         = "serviceAccount:ci-publisher-sa@madison-municipal-data.iam.gserviceaccount.com"
     ci_docs              = "serviceAccount:ci-docs-sa@madison-municipal-data.iam.gserviceaccount.com"
+    scheduler_sa         = "serviceAccount:scheduler-sa@madison-municipal-data.iam.gserviceaccount.com"
   }
   github_repo = "bnoffke/stmsn_dbt"
 }
@@ -73,6 +74,15 @@ resource "google_artifact_registry_repository_iam_member" "ci_publisher_ar_write
   project    = var.project_id
   role       = "roles/artifactregistry.writer"
   member     = local.sa.ci_publisher
+}
+
+# Cloud Scheduler → Cloud Run job invocation
+resource "google_cloud_run_v2_job_iam_member" "scheduler_invokes_runner" {
+  name     = google_cloud_run_v2_job.stmsn_runner.name
+  location = var.region
+  project  = var.project_id
+  role     = "roles/run.invoker"
+  member   = local.sa.scheduler_sa
 }
 
 # stmsn-bronze
