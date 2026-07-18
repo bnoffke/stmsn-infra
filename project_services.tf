@@ -6,6 +6,9 @@ resource "google_project_service" "apis" {
     "workflows.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
+    "secretmanager.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
   ])
   project            = var.project_id
   service            = each.value

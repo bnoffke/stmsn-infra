@@ -14,7 +14,65 @@ locals {
     # route-traffic-runner SA is owned by route-traffic-monitor repo; we only
     # manage its binding on the bronze bucket, not the SA resource itself.
     route_traffic_runner = "serviceAccount:route-traffic-runner@madison-municipal-data.iam.gserviceaccount.com"
+    ci_publisher         = "serviceAccount:ci-publisher-sa@madison-municipal-data.iam.gserviceaccount.com"
+    ci_docs              = "serviceAccount:ci-docs-sa@madison-municipal-data.iam.gserviceaccount.com"
   }
+  github_repo = "bnoffke/stmsn_dbt"
+}
+
+# ---------------------------------------------------------------------------
+# Workload Identity Federation for GitHub Actions (stmsn_dbt)
+# ---------------------------------------------------------------------------
+
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github-actions"
+  display_name              = "GitHub Actions"
+  project                   = var.project_id
+}
+
+resource "google_iam_workload_identity_pool_provider" "github_oidc" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-oidc"
+  display_name                       = "GitHub OIDC"
+  project                            = var.project_id
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.repository" = "assertion.repository"
+    "attribute.ref"        = "assertion.ref"
+  }
+  attribute_condition = "assertion.repository == \"${local.github_repo}\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+# Publish is pinned to main via the OIDC subject (repo:<repo>:ref:refs/heads/main);
+# docs may run repo-wide.
+resource "google_service_account_iam_member" "ci_publisher_wif" {
+  service_account_id = google_service_account.ci_publisher.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/subject/repo:${local.github_repo}:ref:refs/heads/main"
+}
+
+resource "google_service_account_iam_member" "ci_docs_wif" {
+  service_account_id = google_service_account.ci_docs.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${local.github_repo}"
+}
+
+# ---------------------------------------------------------------------------
+# ci-publisher-sa: docker build/push runs on the GitHub runner; AR writer is
+# the entire permission surface.
+# ---------------------------------------------------------------------------
+
+resource "google_artifact_registry_repository_iam_member" "ci_publisher_ar_writer" {
+  repository = google_artifact_registry_repository.stmsn.repository_id
+  location   = var.region
+  project    = var.project_id
+  role       = "roles/artifactregistry.writer"
+  member     = local.sa.ci_publisher
 }
 
 # stmsn-bronze
@@ -81,4 +139,29 @@ resource "google_storage_bucket_iam_binding" "lake_object_user" {
   bucket  = module.lake.name
   role    = "roles/storage.objectUser"
   members = [local.sa.dbt_sa]
+}
+
+resource "google_storage_bucket_iam_binding" "lake_object_viewer" {
+  bucket  = module.lake.name
+  role    = "roles/storage.objectViewer"
+  members = [local.sa.ci_docs]
+}
+
+# stmsn-meta
+# ingest-runner and the user account had pre-existing objectUser grants made
+# outside Terraform; this authoritative binding takes them under management.
+resource "google_storage_bucket_iam_binding" "meta_object_user" {
+  bucket = module.meta.name
+  role   = "roles/storage.objectUser"
+  members = [
+    local.sa.dbt_sa,
+    "serviceAccount:ingest-runner@madison-municipal-data.iam.gserviceaccount.com",
+    "user:bnoffke3790@gmail.com",
+  ]
+}
+
+resource "google_storage_bucket_iam_binding" "meta_object_viewer" {
+  bucket  = module.meta.name
+  role    = "roles/storage.objectViewer"
+  members = [local.sa.ci_docs]
 }

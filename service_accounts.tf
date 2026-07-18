@@ -23,3 +23,17 @@ resource "google_service_account" "streamlit_reader" {
   display_name = "Streamlit App Readonly"
   project      = var.project_id
 }
+
+resource "google_service_account" "ci_publisher" {
+  account_id   = "ci-publisher-sa"
+  display_name = "CI Publisher"
+  description  = "GitHub Actions (stmsn-dbt publish.yml): builds and pushes the runner image."
+  project      = var.project_id
+}
+
+resource "google_service_account" "ci_docs" {
+  account_id   = "ci-docs-sa"
+  display_name = "CI Docs"
+  description  = "GitHub Actions (stmsn-dbt docs.yml): read-only lake/meta access for dbt docs generation."
+  project      = var.project_id
+}
