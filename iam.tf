@@ -77,11 +77,20 @@ resource "google_artifact_registry_repository_iam_member" "ci_publisher_ar_write
 }
 
 # Cloud Scheduler → Cloud Run job invocation
+# roles/run.invoker lacks run.jobs.runWithOverrides, which the scheduler's
+# containerOverrides body requires.
+resource "google_project_iam_custom_role" "run_with_overrides" {
+  project     = var.project_id
+  role_id     = "runJobsWithOverrides"
+  title       = "Run Cloud Run jobs with overrides"
+  permissions = ["run.jobs.run", "run.jobs.runWithOverrides"]
+}
+
 resource "google_cloud_run_v2_job_iam_member" "scheduler_invokes_runner" {
   name     = google_cloud_run_v2_job.stmsn_runner.name
   location = var.region
   project  = var.project_id
-  role     = "roles/run.invoker"
+  role     = google_project_iam_custom_role.run_with_overrides.id
   member   = local.sa.scheduler_sa
 }
 
