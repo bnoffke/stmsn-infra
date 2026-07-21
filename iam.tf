@@ -163,7 +163,7 @@ resource "google_storage_bucket_iam_binding" "lake_object_user" {
 resource "google_storage_bucket_iam_binding" "lake_object_viewer" {
   bucket  = module.lake.name
   role    = "roles/storage.objectViewer"
-  members = [local.sa.ci_docs, local.sa.duckdb_reader]
+  members = [local.sa.ci_docs, local.sa.duckdb_reader, local.sa.streamlit_reader]
 }
 
 # stmsn-meta
@@ -182,5 +182,5 @@ resource "google_storage_bucket_iam_binding" "meta_object_user" {
 resource "google_storage_bucket_iam_binding" "meta_object_viewer" {
   bucket  = module.meta.name
   role    = "roles/storage.objectViewer"
-  members = [local.sa.ci_docs, local.sa.duckdb_reader]
+  members = [local.sa.ci_docs, local.sa.duckdb_reader, local.sa.streamlit_reader]
 }
