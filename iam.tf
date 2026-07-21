@@ -112,6 +112,7 @@ resource "google_storage_bucket_iam_binding" "bronze_object_viewer" {
   members = [
     local.sa.dbt_sa,
     local.sa.duckdb_reader,
+    local.sa.streamlit_reader,
   ]
 }
 
