@@ -44,3 +44,14 @@ resource "google_service_account" "ci_docs" {
   description  = "GitHub Actions (stmsn-dbt docs.yml): read-only lake/meta access for dbt docs generation."
   project      = var.project_id
 }
+
+# One SA per guest so credentials revoke individually and reads are
+# attributable per person. Owner email goes in the description to keep the
+# roster auditable from the console.
+resource "google_service_account" "guest_reader" {
+  for_each     = var.guest_readers
+  account_id   = "guest-${each.key}-sa"
+  display_name = "Guest Reader (${each.key})"
+  description  = "Read-only lakehouse guest. Owner: ${each.value}"
+  project      = var.project_id
+}

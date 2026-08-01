@@ -108,3 +108,49 @@ resource "google_secret_manager_secret_iam_member" "ci_docs_secret" {
   role      = "roles/secretmanager.secretAccessor"
   member    = local.sa.ci_docs
 }
+
+# ---------------------------------------------------------------------------
+# Guest reader pairs — handed out of band, consumed as GCS_KEY_ID / GCS_SECRET
+#
+# Deliberately no secretAccessor binding for guests: they have no GCP identity
+# to read a secret with. Secret Manager here is the admin's record of truth
+# only; see `guest_gcs_credentials` in outputs.tf for retrieval.
+# ---------------------------------------------------------------------------
+
+resource "google_storage_hmac_key" "guest_reader" {
+  for_each              = var.guest_readers
+  service_account_email = google_service_account.guest_reader[each.key].email
+  project               = var.project_id
+}
+
+resource "google_secret_manager_secret" "guest_gcs_key_id" {
+  for_each   = var.guest_readers
+  secret_id  = "guest-${each.key}-gcs-key-id"
+  project    = var.project_id
+  depends_on = [google_project_service.apis["secretmanager.googleapis.com"]]
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "guest_gcs_key_id" {
+  for_each    = var.guest_readers
+  secret      = google_secret_manager_secret.guest_gcs_key_id[each.key].id
+  secret_data = google_storage_hmac_key.guest_reader[each.key].access_id
+}
+
+resource "google_secret_manager_secret" "guest_gcs_secret" {
+  for_each   = var.guest_readers
+  secret_id  = "guest-${each.key}-gcs-secret"
+  project    = var.project_id
+  depends_on = [google_project_service.apis["secretmanager.googleapis.com"]]
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "guest_gcs_secret" {
+  for_each    = var.guest_readers
+  secret      = google_secret_manager_secret.guest_gcs_secret[each.key].id
+  secret_data = google_storage_hmac_key.guest_reader[each.key].secret
+}

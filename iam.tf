@@ -19,6 +19,13 @@ locals {
     scheduler_sa         = "serviceAccount:scheduler-sa@madison-municipal-data.iam.gserviceaccount.com"
   }
   github_repo = "bnoffke/stmsn_dbt"
+
+  # Derived from the resource rather than hand-written into local.sa above, so
+  # a bad name fails at plan time instead of apply time.
+  guest_members = [
+    for k, _ in var.guest_readers :
+    "serviceAccount:${google_service_account.guest_reader[k].email}"
+  ]
 }
 
 # ---------------------------------------------------------------------------
@@ -109,11 +116,11 @@ resource "google_storage_bucket_iam_binding" "bronze_object_admin" {
 resource "google_storage_bucket_iam_binding" "bronze_object_viewer" {
   bucket = module.bronze.name
   role   = "roles/storage.objectViewer"
-  members = [
+  members = concat([
     local.sa.dbt_sa,
     local.sa.duckdb_reader,
     local.sa.streamlit_reader,
-  ]
+  ], local.guest_members)
 }
 
 # stmsn-silver
@@ -128,11 +135,11 @@ resource "google_storage_bucket_iam_binding" "silver_object_admin" {
 resource "google_storage_bucket_iam_binding" "silver_object_viewer" {
   bucket = module.silver.name
   role   = "roles/storage.objectViewer"
-  members = [
+  members = concat([
     local.sa.api_sa,
     local.sa.duckdb_reader,
     local.sa.streamlit_reader,
-  ]
+  ], local.guest_members)
 }
 
 # stmsn-gold
@@ -147,11 +154,11 @@ resource "google_storage_bucket_iam_binding" "gold_object_admin" {
 resource "google_storage_bucket_iam_binding" "gold_object_viewer" {
   bucket = module.gold.name
   role   = "roles/storage.objectViewer"
-  members = [
+  members = concat([
     local.sa.api_sa,
     local.sa.duckdb_reader,
     local.sa.streamlit_reader,
-  ]
+  ], local.guest_members)
 }
 
 # stmsn-lake
@@ -162,9 +169,12 @@ resource "google_storage_bucket_iam_binding" "lake_object_user" {
 }
 
 resource "google_storage_bucket_iam_binding" "lake_object_viewer" {
-  bucket  = module.lake.name
-  role    = "roles/storage.objectViewer"
-  members = [local.sa.ci_docs, local.sa.duckdb_reader, local.sa.streamlit_reader]
+  bucket = module.lake.name
+  role   = "roles/storage.objectViewer"
+  members = concat(
+    [local.sa.ci_docs, local.sa.duckdb_reader, local.sa.streamlit_reader],
+    local.guest_members
+  )
 }
 
 # stmsn-meta
@@ -181,7 +191,10 @@ resource "google_storage_bucket_iam_binding" "meta_object_user" {
 }
 
 resource "google_storage_bucket_iam_binding" "meta_object_viewer" {
-  bucket  = module.meta.name
-  role    = "roles/storage.objectViewer"
-  members = [local.sa.ci_docs, local.sa.duckdb_reader, local.sa.streamlit_reader]
+  bucket = module.meta.name
+  role   = "roles/storage.objectViewer"
+  members = concat(
+    [local.sa.ci_docs, local.sa.duckdb_reader, local.sa.streamlit_reader],
+    local.guest_members
+  )
 }
